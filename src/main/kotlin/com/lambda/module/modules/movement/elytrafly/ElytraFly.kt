@@ -74,9 +74,9 @@ object ElytraFly : Module(
     private val boostSpeed by setting("Boost", 0.0, 0.0..0.5, 0.005, description = "Speed to add when flying")
     @JvmStatic val rocketBoostMode by setting("Rocket Boost Mode", RocketBoostMode.Grim)
     private val rocketSpeed by setting("Rocket Speed", 1.0, 0.0..2.0, 0.01, description = "Speed multiplier that the rocket gives you") { rocketBoostMode == RocketBoostMode.Standard }
-    private val maxGrimBoost by setting("Max Grim Boost", 400.0, 0.0..720.0, 5.0, "Maximum speed to claim while Grim rescaling is active", "km/h") { rocketBoostMode == RocketBoostMode.Grim }
+    private val maxSpeed by setting("Max Speed", 400.0, 0.0..720.0, 5.0, "Maximum flight speed", "km/h") { rocketBoostMode == RocketBoostMode.Grim }
     private val angleBoost by setting("Angle Boost", false, "Picks the best flight angle to maximise boost based on your view") { rocketBoostMode == RocketBoostMode.Grim }
-    private val safetyMargin by setting("Safety Margin", 0.2, -2.0..2.0, 0.01, "The time (in seconds) to modify the firework use delay", "s")
+    private val safetyMargin by setting("Safety Margin", -0.2, -2.0..2.0, 0.01, "The time (in seconds) to modify the firework use delay", "s")
     private val mute by setting("Mute Elytra", false, "Mutes the elytra sound when gliding")
     @JvmStatic val fakeFly by setting("Fake Fly", false, "Rapidly swaps the chestplate and elytra to give the appearance the player is flying without an elytra. May also reduce durability loss")
 
@@ -130,7 +130,7 @@ object ElytraFly : Module(
                 hasFirework = false
                 return@listen
             }
-            if (!withinFireworkTimeframe()) hasFirework = false
+            if (fireworkTimer.timePassed(lastFireworkDuration.seconds)) hasFirework = false
             hasFirework = hasFirework || player.hasFirework
         }
 
@@ -276,10 +276,10 @@ object ElytraFly : Module(
     }
 
     private fun limitSpeed(velocity: Vec3d): Vec3d {
-        val maxSpeed = maxGrimBoost / 72.0
+        val maxBlocksPerTick = maxSpeed / 72.0
         val length = velocity.length()
-        if (length <= maxSpeed) return velocity
-        return velocity.multiply(maxSpeed / length)
+        if (length <= maxBlocksPerTick) return velocity
+        return velocity.multiply(maxBlocksPerTick / length)
     }
 
     enum class FlyMode(private val elytraFlyGetter: () -> ElytraFlyMode) {
