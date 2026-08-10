@@ -76,7 +76,7 @@ object ElytraFly : Module(
     private val rocketSpeed by setting("Rocket Speed", 1.0, 0.0..2.0, 0.01, description = "Speed multiplier that the rocket gives you") { rocketBoostMode == RocketBoostMode.Standard }
     private val maxSpeed by setting("Max Speed", 400.0, 0.0..720.0, 5.0, "Maximum flight speed", "km/h") { rocketBoostMode == RocketBoostMode.Grim }
     private val angleBoost by setting("Angle Boost", false, "Picks the best flight angle to maximise boost based on your view") { rocketBoostMode == RocketBoostMode.Grim }
-    private val safetyMargin by setting("Safety Margin", -0.2, -2.0..2.0, 0.01, "The time (in seconds) to modify the firework use delay", "s")
+    private val safetyMargin by setting("Safety Margin", 0.2, 0.0..2.0, 0.01, "The time (in seconds) to shorten the firework use delay to account for ping variation", "s")
     private val mute by setting("Mute Elytra", false, "Mutes the elytra sound when gliding")
     @JvmStatic val fakeFly by setting("Fake Fly", false, "Rapidly swaps the chestplate and elytra to give the appearance the player is flying without an elytra. May also reduce durability loss")
 
@@ -130,7 +130,7 @@ object ElytraFly : Module(
                 hasFirework = false
                 return@listen
             }
-            if (fireworkTimer.timePassed(lastFireworkDuration.seconds)) hasFirework = false
+            if (!withinFireworkTimeframe()) hasFirework = false
             hasFirework = hasFirework || player.hasFirework
         }
 
@@ -235,7 +235,7 @@ object ElytraFly : Module(
 	        )
         }
 
-    fun withinFireworkTimeframe() = !fireworkTimer.timePassed((lastFireworkDuration + safetyMargin).seconds)
+    fun withinFireworkTimeframe() = !fireworkTimer.timePassed((lastFireworkDuration - safetyMargin).seconds)
 
     private fun pickAxis(aim: Double, min: Double, max: Double): Double {
         if (aim > 1.0E-3) return max
