@@ -74,8 +74,9 @@ object ElytraFly : Module(
     private val boostSpeed by setting("Boost", 0.0, 0.0..0.5, 0.005, description = "Speed to add when flying")
     @JvmStatic val rocketBoostMode by setting("Rocket Boost Mode", RocketBoostMode.Grim)
     private val rocketSpeed by setting("Rocket Speed", 1.0, 0.0..2.0, 0.01, description = "Speed multiplier that the rocket gives you") { rocketBoostMode == RocketBoostMode.Standard }
-    private val maxGrimBoost by setting("Max Grim Boost", 3.0, 0.0..3.0, 0.01, description = "Maximum additional speed the firework boost can add on top of the base rocket speed") { rocketBoostMode == RocketBoostMode.Grim }
-    private val safetyMargin by setting("Safety Margin", 0.2, 0.0..2.0, 0.01, "The time (in seconds) to shorten the firework use delay to account for ping variation", "s")
+    private val maxGrimBoost by setting("Max Grim Boost", 400.0, 0.0..720.0, 5.0, "Maximum speed to claim while Grim rescaling is active", "km/h") { rocketBoostMode == RocketBoostMode.Grim }
+    private val angleBoost by setting("Angle Boost", false, "Picks the best flight angle to maximise boost based on your view") { rocketBoostMode == RocketBoostMode.Grim }
+    private val safetyMargin by setting("Safety Margin", 0.2, -2.0..2.0, 0.01, "The time (in seconds) to modify the firework use delay", "s")
     private val mute by setting("Mute Elytra", false, "Mutes the elytra sound when gliding")
     @JvmStatic val fakeFly by setting("Fake Fly", false, "Rapidly swaps the chestplate and elytra to give the appearance the player is flying without an elytra. May also reduce durability loss")
 
@@ -157,7 +158,16 @@ object ElytraFly : Module(
                     lastMovementIncludedPosition,
                     GRIM_ROCKET_BOOST_RESCALE
                 ) ?: return@listen
-            val claimed = farthestPointInBox(bounds, aiming)?.let { limitSpeed(it) } ?: return@listen
+            val claimed =
+                if (angleBoost) {
+                    Vec3d(
+                        pickAxis(aiming.x, bounds[0], bounds[3]),
+                        pickAxis(aiming.y, bounds[1], bounds[4]),
+                        pickAxis(aiming.z, bounds[2], bounds[5])
+                    )
+                } else {
+                    farthestPointInBox(bounds, aiming)
+                }?.let { limitSpeed(it) } ?: return@listen
 
             targetVelocity = claimed
             player.velocity = claimed
@@ -225,7 +235,13 @@ object ElytraFly : Module(
 	        )
         }
 
-    fun withinFireworkTimeframe() = !fireworkTimer.timePassed((lastFireworkDuration - safetyMargin).seconds)
+    fun withinFireworkTimeframe() = !fireworkTimer.timePassed((lastFireworkDuration + safetyMargin).seconds)
+
+    private fun pickAxis(aim: Double, min: Double, max: Double): Double {
+        if (aim > 1.0E-3) return max
+        if (aim < -1.0E-3) return min
+        return 0.0.coerceIn(min, max)
+    }
 
     private fun farthestPointInBox(bounds: DoubleArray, aim: Vec3d): Vec3d? {
         val center = Vec3d(
@@ -260,7 +276,7 @@ object ElytraFly : Module(
     }
 
     private fun limitSpeed(velocity: Vec3d): Vec3d {
-        val maxSpeed = 1.7 * rocketSpeed + maxGrimBoost
+        val maxSpeed = maxGrimBoost / 72.0
         val length = velocity.length()
         if (length <= maxSpeed) return velocity
         return velocity.multiply(maxSpeed / length)
