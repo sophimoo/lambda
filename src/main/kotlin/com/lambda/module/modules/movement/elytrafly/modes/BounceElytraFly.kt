@@ -134,6 +134,10 @@ class BounceElytraFly(
 				}.submit()
 			}
 
+			if (BaritoneHandler.isActive && player.isOnGround && player.getFlag(Entity.GLIDING_FLAG_INDEX)) {
+				player.setFlag(Entity.GLIDING_FLAG_INDEX, false)
+			}
+
 			if (handlePassingObstacles()) return@listen
 
 			if (yMotionSetting && strictYMotionRange && onYMotionAngle) run yMotionCorrection@ {

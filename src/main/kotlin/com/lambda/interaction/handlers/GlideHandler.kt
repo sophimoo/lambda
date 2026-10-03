@@ -160,6 +160,7 @@ object GlideHandler {
 	context(safeContext: SafeContext)
 	fun canGlide(): Boolean =
 		with(safeContext) {
+			if (ElytraFly.isEnabled && mode.elytraFly.passingObstacles) return false
 			val fakeFly = ElytraFly.isEnabled && ElytraFly.fakeFly
 			val canGlideAlready = player.canGlideWithChestPiece() != fakeFly
 			if (!autoSwapChecking || canGlideAlready) return canGlideAlready

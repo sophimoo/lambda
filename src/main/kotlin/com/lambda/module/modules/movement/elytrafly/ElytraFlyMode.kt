@@ -56,6 +56,9 @@ abstract class ElytraFlyMode(
 
 	var fakeGliding = false
 
+	open val passingObstacles: Boolean
+		get() = false
+
 	init {
 		listen<TickEvent.Pre>({ 100 }) {
 			fakeGliding = fakeFly && fakeGliding && player.canGlide()

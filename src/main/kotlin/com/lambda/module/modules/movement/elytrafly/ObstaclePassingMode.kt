@@ -17,7 +17,7 @@
 
 package com.lambda.module.modules.movement.elytrafly
 
-import baritone.api.pathing.goals.GoalGetToBlock
+import baritone.api.pathing.goals.GoalNear
 import com.lambda.config.Config
 import com.lambda.config.ConfigBlock
 import com.lambda.context.SafeContext
@@ -51,6 +51,10 @@ abstract class ObstaclePassingMode(
 
 	var startPos: Vec3d = Vec3d.ZERO
 	var passingToPos: Vec3d? = null
+	private var lastPathingMs = 0L
+
+	override val passingObstacles: Boolean
+		get() = passingToPos != null
 
 	init {
 		onEnable { startPos = player.pos }
@@ -60,6 +64,9 @@ abstract class ObstaclePassingMode(
 		}
 		onFlag {
 			if (!passerConfig.passObstacles || !passerConfig.walkWhenFlagged) return@onFlag
+			if (passingObstacles) return@onFlag
+			val validDistanceFromStart = Vec3d(player.pos.x, startPos.y, player.pos.z) dist startPos > 0.1
+			if (!validDistanceFromStart) return@onFlag
 			val snappedDir = getSnappedDir()
 			val closestLinePoint = player.pos.findClosestPointOnLine(snappedDir)
 			runGameScheduled {
@@ -89,14 +96,22 @@ abstract class ObstaclePassingMode(
 		val closestLinePoint = playerPos.findClosestPointOnLine(snappedDir)
 
 		passingToPos?.let { passingTo ->
-			if (passingTo distSq startPos < playerPos distSq startPos) {
-				val atClosestPointBlockPos = closestLinePoint.flooredBlockPos == player.blockPos
-				if (!atClosestPointBlockPos) pathToValidPoint(closestLinePoint, snappedDir, false)
-				else {
-					BaritoneHandler.cancel()
-					passingToPos = null
-					return@let
-				}
+			val targetBehind = passingTo distSq startPos < playerPos distSq startPos
+			if (passingTo.flooredBlockPos == player.blockPos ||
+				(targetBehind && closestLinePoint.flooredBlockPos == player.blockPos)
+			) {
+				BaritoneHandler.cancel()
+				passingToPos = null
+				return true
+			}
+			if (BaritoneHandler.isPathing) lastPathingMs = System.currentTimeMillis()
+			else if (System.currentTimeMillis() - lastPathingMs > 15_000) {
+				BaritoneHandler.cancel()
+				passingToPos = null
+				return true
+			}
+			if (targetBehind) {
+				pathToValidPoint(closestLinePoint, snappedDir, false)
 			}
 			if (passingTo.isObstructed(snappedDir)) {
 				pathToValidPoint(passingTo, snappedDir)
@@ -171,8 +186,11 @@ abstract class ObstaclePassingMode(
 	}
 
 	private fun passTo(pos: Vec3d) {
+		val blockPos = pos.flooredBlockPos
+		if (passingToPos?.flooredBlockPos == blockPos) return
 		passingToPos = pos
-		BaritoneHandler.setGoalAndPath(GoalGetToBlock(pos.flooredBlockPos))
+		lastPathingMs = System.currentTimeMillis()
+		BaritoneHandler.setGoalAndPath(GoalNear(blockPos, 1))
 	}
 
 	protected fun Vec3d.findClosestPointOnLine(snappedDirection: Vec3d): Vec3d {

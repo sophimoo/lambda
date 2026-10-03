@@ -138,6 +138,7 @@ public abstract class ClientPlayerEntityMixin extends AbstractClientPlayerEntity
 
     @ModifyVariable(method = "sendMovementPackets", at = @At(value = "STORE"), ordinal = 1)
     private boolean modifyBl2(boolean original) {
+        if (BaritoneHandler.isActive()) return original;
         boolean rotationMismatch = dist(RotationManager.getActiveRotation(), RotationManager.getServerRotation()) > 0.00001;
         return original || rotationMismatch;
     }
